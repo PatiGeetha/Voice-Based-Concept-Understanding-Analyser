@@ -1,0 +1,29 @@
+# VBCUA — Voice-Based Concept Understanding Analyser
+# Python 3.10+ required
+#
+# Version constraints use a minimum-floor (>=) rather than exact pins so
+# security patches can flow in, but each floor is chosen to guarantee API
+# compatibility with the code in modules/.
+# Freeze with `pip freeze > requirements.lock.txt` for reproducible builds.
+
+streamlit>=1.32.0
+librosa>=0.10.1
+soundfile>=0.12.1
+matplotlib>=3.8.0
+torch>=2.2.0
+transformers>=4.38.0
+sentence-transformers>=2.5.0
+openai-whisper>=20231117
+reportlab>=4.1.0
+python-dotenv>=1.0.1
+nltk>=3.8.1
+audioread>=3.0.1
+numpy>=1.24.0
+
+# Backend Web API Support
+fastapi>=0.109.0
+uvicorn>=0.27.0
+python-multipart>=0.0.9
+
+# Google Generative AI (Gemini)
+google-generativeai>=0.4.0

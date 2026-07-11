@@ -1,0 +1,32 @@
+# Python virtual environment
+venv/
+.venv/
+env/
+ENV/
+
+# Python compiled files
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local caches
+.pytest_cache/
+.ipynb_checkpoints/
+.cache/
+
+# Asset directories (containing user data/uploads)
+assets/uploads/*
+assets/waveforms/*
+assets/reports/*
+!assets/uploads/.gitkeep
+!assets/waveforms/.gitkeep
+!assets/reports/.gitkeep
+
+# Local SQLite databases
+assets/*.db
+assets/*.db-journal
+
+# Environment variables
+.env
+.env.*
