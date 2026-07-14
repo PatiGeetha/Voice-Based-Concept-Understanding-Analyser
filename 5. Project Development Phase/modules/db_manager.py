@@ -46,6 +46,14 @@ def save_user(name: str, email: str, role: str = "learner", db_path: Path = DEFA
             raise
 
 
+def get_user_by_email(email: str, db_path: Path = DEFAULT_DB_PATH) -> Optional[Dict[str, Any]]:
+    """Retrieves a user profile by email address."""
+    with get_connection(db_path) as conn:
+        cursor = conn.execute("SELECT * FROM user WHERE email = ?", (email,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
 def get_all_users(db_path: Path = DEFAULT_DB_PATH) -> List[Dict[str, Any]]:
     """Retrieves all users."""
     with get_connection(db_path) as conn:

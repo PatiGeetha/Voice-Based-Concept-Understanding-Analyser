@@ -27,7 +27,7 @@ from unittest import mock
 
 # Ensure project root is importable regardless of the working directory
 # this script is invoked from.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "5. Project Development Phase"))
 
 import init_db  # noqa: E402
 from modules import scoring_engine  # noqa: E402
@@ -432,6 +432,48 @@ class TestDBManagerOperations(unittest.TestCase):
         self.assertEqual(len(users), 1)
         self.assertEqual(users[0]["name"], "Test Name")
 
+    def test_get_user_by_email(self):
+        from modules import db_manager
+        # Save a test user
+        db_manager.save_user("Returning User", "returning@vbcua.edu", "educator", db_path=self.db_path)
+        
+        # Retrieve user
+        user = db_manager.get_user_by_email("returning@vbcua.edu", db_path=self.db_path)
+        self.assertIsNotNone(user)
+        self.assertEqual(user["name"], "Returning User")
+        self.assertEqual(user["role"], "educator")
+        
+        # Query non-existent
+        none_user = db_manager.get_user_by_email("not.there@vbcua.edu", db_path=self.db_path)
+        self.assertIsNone(none_user)
+
+
+class TestEmailDispatcher(unittest.TestCase):
+    """Verifies that the send_otp_email function connects, logs in, and dispatches messages correctly using mock SMTP."""
+
+    @mock.patch("smtplib.SMTP")
+    def test_send_otp_email_success(self, mock_smtp):
+        from modules import email_utils
+        
+        # Setup mock instance
+        mock_server = mock.MagicMock()
+        mock_smtp.return_value.__enter__.return_value = mock_server
+        
+        result = email_utils.send_otp_email(
+            to_email="test@vbcua.edu",
+            otp="123456",
+            smtp_host="smtp.gmail.com",
+            smtp_port=587,
+            smtp_user="user@gmail.com",
+            smtp_password="password"
+        )
+        
+        self.assertTrue(result)
+        mock_smtp.assert_called_once_with("smtp.gmail.com", 587, timeout=10)
+        mock_server.starttls.assert_called_once()
+        mock_server.login.assert_called_once_with("user@gmail.com", "password")
+        mock_server.send_message.assert_called_once()
+
 
 # ==========================================================================
 # Main execution block — clean pass/fail summary + non-zero exit on failure
@@ -446,6 +488,7 @@ def _build_suite() -> unittest.TestSuite:
     suite.addTests(loader.loadTestsFromTestCase(TestAudioToScoringIntegration))
     suite.addTests(loader.loadTestsFromTestCase(TestNLPAnalyzer))
     suite.addTests(loader.loadTestsFromTestCase(TestDBManagerOperations))
+    suite.addTests(loader.loadTestsFromTestCase(TestEmailDispatcher))
     return suite
 
 

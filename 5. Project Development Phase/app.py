@@ -8,10 +8,14 @@ Connects to the FastAPI server (running on port 8000) or falls back to direct mo
 
 import json
 import logging
+import os
 from pathlib import Path
 import requests
 
+from dotenv import load_dotenv
 import streamlit as st
+
+load_dotenv()
 
 # Configure page (must be first)
 st.set_page_config(
@@ -28,6 +32,7 @@ try:
     from modules import (
         audio_utils,
         db_manager,
+        email_utils,
         gemini_feedback,
         nlp_utils,
         report_generator,
@@ -44,6 +49,12 @@ logger = logging.getLogger(__name__)
 
 # Constants
 API_BASE_URL = "http://localhost:8000"
+
+TIER_COLORS = {
+    "Strong Understanding": "#2ecc71",
+    "Moderate Understanding": "#f39c12",
+    "Poor Understanding": "#e74c3c",
+}
 
 REFERENCE_CONCEPTS = {
     "Machine Learning": (
@@ -339,6 +350,31 @@ st.markdown(
     .stDownloadButton > button:hover {
         background: rgba(46,204,113,0.2) !important;
     }
+    
+    /* Sign Up Layout */
+    .signup-container {
+        max-width: 500px;
+        margin: 50px auto;
+        background: rgba(22, 27, 34, 0.85) !important;
+        backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(48, 54, 61, 0.8) !important;
+        border-radius: 16px !important;
+        padding: 35px !important;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+    }
+    .signup-title {
+        font-size: 1.8rem !important;
+        font-weight: 800 !important;
+        color: #ffffff !important;
+        text-align: center !important;
+        margin-bottom: 8px !important;
+    }
+    .signup-subtitle {
+        font-size: 0.95rem !important;
+        color: #8b949e !important;
+        text-align: center !important;
+        margin-bottom: 25px !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -349,6 +385,164 @@ st.markdown(
 # --------------------------------------------------------------------------
 if "evaluation_results" not in st.session_state:
     st.session_state["evaluation_results"] = None
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+if "otp" not in st.session_state:
+    st.session_state["otp"] = None
+if "email_sent" not in st.session_state:
+    st.session_state["email_sent"] = False
+if "user_info" not in st.session_state:
+    st.session_state["user_info"] = {}
+
+
+# --------------------------------------------------------------------------
+# Sign-Up & OTP Verification Page
+# --------------------------------------------------------------------------
+if not st.session_state["authenticated"]:
+    # Resolve SMTP Configuration at runtime
+    smtp_host_env = os.getenv("SMTP_HOST", "")
+    smtp_port_env = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user_env = os.getenv("SMTP_USER", "")
+    smtp_password_env = os.getenv("SMTP_PASSWORD", "")
+    smtp_from_env = os.getenv("SMTP_FROM", smtp_user_env)
+    
+    smtp_configured = bool(smtp_host_env and smtp_user_env and smtp_password_env)
+
+    # Render Sign Up Layout in a clean, isolated view
+    st.markdown('<div class="signup-container">', unsafe_allow_html=True)
+    st.markdown('<div class="signup-title">🎙️ VBCUA Portal</div>', unsafe_allow_html=True)
+    st.markdown('<div class="signup-subtitle">Verify your identity with OTP to access the Analyser</div>', unsafe_allow_html=True)
+    
+    if not st.session_state["email_sent"]:
+        # Stage 1: Get Details
+        auth_mode = st.radio("Choose Access Mode:", ["🔑 Log In", "📝 Sign Up"], horizontal=True, label_visibility="collapsed")
+        
+        if auth_mode == "🔑 Log In":
+            su_email = st.text_input("Registered Email Address", placeholder="e.g. jane.doe@vbcua.edu")
+            su_name = ""
+            su_role = ""
+        else:
+            su_name = st.text_input("Full Name", placeholder="e.g. Jane Doe")
+            su_email = st.text_input("Email Address", placeholder="e.g. jane.doe@vbcua.edu")
+            su_role = st.selectbox("Your Role", ["learner", "educator", "researcher"])
+            
+        # Accordion UI configuration for SMTP if needed
+        smtp_expander = st.expander("⚙️ SMTP Email Server Settings", expanded=not smtp_configured)
+        with smtp_expander:
+            if smtp_configured:
+                st.success("🟢 Loaded SMTP configurations from .env")
+            ui_smtp_host = st.text_input("SMTP Host", value=smtp_host_env or "smtp.gmail.com")
+            ui_smtp_port = st.number_input("SMTP Port", value=smtp_port_env, min_value=1, max_value=65535)
+            ui_smtp_user = st.text_input("SMTP Username (Email)", value=smtp_user_env, placeholder="e.g. sender@gmail.com")
+            ui_smtp_password = st.text_input("SMTP App Password", value=smtp_password_env, type="password", placeholder="Provide 16-character App Password")
+            ui_smtp_from = st.text_input("SMTP From Email (Optional)", value=smtp_from_env or ui_smtp_user)
+            
+        st.markdown("<div style='height:15px;'></div>", unsafe_allow_html=True)
+        if st.button("Send Verification OTP", type="primary", use_container_width=True):
+            if auth_mode == "📝 Sign Up" and (not su_name.strip() or not su_email.strip()):
+                st.error("⚠️ Please fill in all fields.")
+            elif auth_mode == "🔑 Log In" and not su_email.strip():
+                st.error("⚠️ Please enter your registered email address.")
+            elif "@" not in su_email or "." not in su_email:
+                st.error("⚠️ Please enter a valid email address.")
+            else:
+                # Check if email exists in DB if logging in
+                user_record = None
+                if auth_mode == "🔑 Log In":
+                    if LOCAL_FALLBACK_AVAILABLE:
+                        try:
+                            user_record = db_manager.get_user_by_email(su_email.strip())
+                        except Exception as e:
+                            logger.exception("Failed to query user record locally.")
+                    if not user_record:
+                        st.error("❌ Email address not registered. Please Sign Up first.")
+                        st.stop()
+
+                # Resolve SMTP details to use
+                active_host = smtp_host_env or ui_smtp_host
+                active_port = smtp_port_env or ui_smtp_port
+                active_user = smtp_user_env or ui_smtp_user
+                active_password = smtp_password_env or ui_smtp_password
+                active_from = smtp_from_env or ui_smtp_from or active_user
+                
+                if not active_host or not active_user or not active_password:
+                    st.error("⚠️ SMTP Server Settings must be fully configured to dispatch the verification OTP email.")
+                else:
+                    import random
+                    generated_otp = str(random.randint(100000, 999999))
+                    
+                    with st.spinner("📧 Delivering verification code to your inbox..."):
+                        try:
+                            email_utils.send_otp_email(
+                                to_email=su_email.strip(),
+                                otp=generated_otp,
+                                smtp_host=active_host,
+                                smtp_port=int(active_port),
+                                smtp_user=active_user,
+                                smtp_password=active_password,
+                                smtp_from=active_from
+                            )
+                            st.session_state["otp"] = generated_otp
+                            if auth_mode == "🔑 Log In" and user_record:
+                                st.session_state["user_info"] = {
+                                    "name": user_record["name"],
+                                    "email": user_record["email"],
+                                    "role": user_record["role"]
+                                }
+                            else:
+                                st.session_state["user_info"] = {
+                                    "name": su_name.strip(),
+                                    "email": su_email.strip(),
+                                    "role": su_role
+                                }
+                            st.session_state["email_sent"] = True
+                            st.toast(f"📧 Verification OTP sent to {su_email.strip()}!", icon="📧")
+                            st.rerun()
+                        except Exception as err:
+                            st.error(f"❌ Failed to dispatch email: {err}")
+                            logger.exception("SMTP email delivery failed.")
+    else:
+        # Stage 2: OTP Verification
+        user_info = st.session_state["user_info"]
+        st.info(f"📧 A 6-digit verification code has been dispatched to **{user_info['email']}**.\n\n"
+                f"Please check your inbox (and spam folder) and input the code below.")
+        
+        entered_otp = st.text_input("Enter 6-Digit OTP", max_chars=6, placeholder="######")
+        
+        st.markdown("<div style='height:15px;'></div>", unsafe_allow_html=True)
+        verify_col1, verify_col2 = st.columns(2)
+        with verify_col1:
+            if st.button("Verify & Enter Dashboard", type="primary", use_container_width=True):
+                if entered_otp.strip() == st.session_state["otp"]:
+                    # Save user in the database
+                    if LOCAL_FALLBACK_AVAILABLE:
+                        try:
+                            db_manager.save_user(
+                                name=user_info["name"],
+                                email=user_info["email"],
+                                role=user_info["role"]
+                            )
+                        except Exception as e:
+                            logger.exception("Failed to save user in local database fallback.")
+                    st.session_state["authenticated"] = True
+                    st.success("✅ OTP verified successfully!")
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid OTP. Please try again.")
+        with verify_col2:
+            if st.button("Change Details / Go Back", use_container_width=True):
+                st.session_state["email_sent"] = False
+                st.session_state["otp"] = None
+                st.session_state["user_info"] = {}
+                st.rerun()
+                
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
+
+# authenticated user info references
+user_name = st.session_state["user_info"]["name"]
+user_email = st.session_state["user_info"]["email"]
+user_role = st.session_state["user_info"]["role"]
 
 
 # --------------------------------------------------------------------------
@@ -360,9 +554,9 @@ with st.sidebar:
     st.markdown("---")
     
     st.subheader("👤 User Profile")
-    user_name = st.text_input("Name", value="Jane Doe")
-    user_email = st.text_input("Email", value="jane.doe@vbcua.edu")
-    user_role = st.selectbox("Role", ["learner", "educator", "researcher"])
+    st.write(f"**Name:** {user_name}")
+    st.write(f"**Email:** {user_email}")
+    st.write(f"**Role:** {user_role.capitalize()}")
     
     st.markdown("---")
     st.subheader("🔑 API Configurations")
@@ -387,6 +581,14 @@ with st.sidebar:
         st.success("🟢 FastAPI Backend: Online")
     else:
         st.warning("🟡 FastAPI Backend: Offline (Running locally)")
+
+    st.markdown("---")
+    if st.button("🚪 Sign Out", use_container_width=True):
+        st.session_state["authenticated"] = False
+        st.session_state["otp"] = None
+        st.session_state["email_sent"] = False
+        st.session_state["user_info"] = {}
+        st.rerun()
 
 
 # --------------------------------------------------------------------------
@@ -417,15 +619,19 @@ with tab_evaluate:
 
     with col_input_left:
         st.markdown('<div class="section-label">Step 1 — Ingest Explanation</div>', unsafe_allow_html=True)
-        st.subheader("🎧 Upload Audio File")
+        st.subheader("🎧 Upload Explanation File")
         uploaded_file = st.file_uploader(
-            "Upload WAV or MP3 audio explanation:",
-            type=["wav", "mp3"],
+            "Upload any explanation file:",
             accept_multiple_files=False,
             label_visibility="collapsed"
         )
         if uploaded_file:
-            st.audio(uploaded_file)
+            if uploaded_file.name.lower().endswith(".mp4"):
+                st.video(uploaded_file)
+            elif uploaded_file.name.lower().endswith((".wav", ".mp3")):
+                st.audio(uploaded_file)
+            else:
+                st.info(f"📂 File '{uploaded_file.name}' staged for processing.")
 
     with col_input_right:
         st.markdown('<div class="section-label">Step 2 — Reference Standard</div>', unsafe_allow_html=True)
@@ -455,7 +661,7 @@ with tab_evaluate:
 
     if start_analysis:
         if not uploaded_file:
-            st.warning("⚠️ Please upload an audio file first.")
+            st.warning("⚠️ Please upload a file first.")
         elif not reference_text.strip():
             st.warning("⚠️ Please provide reference concept text.")
         else:
