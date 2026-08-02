@@ -1,11 +1,12 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch
+torch==2.1.2
+torchaudio==2.1.2
 streamlit
 librosa
 reportlab
 soundfile
 matplotlib
-numpy
+numpy<2.0.0
 pandas
 openai-whisper
 sentence-transformers
