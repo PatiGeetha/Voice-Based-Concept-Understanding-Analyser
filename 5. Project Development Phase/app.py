@@ -12,18 +12,16 @@ for path in [str(CURRENT_DIR), str(REPO_ROOT)]:
 
 import json
 import logging
-
-# Safe import for email_utils
-try:
-    import email_utils
-except ModuleNotFoundError:
-    try:
-        from utils import email_utils
-    except ModuleNotFoundError:
-        email_utils = None  # Prevents app crash if email module isn't crucial for startup
+import sys
 from pathlib import Path
-import requests
 
+# Force Python to look in the directory of app.py first
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
+# Import email_utils directly
+import email_utils
 from dotenv import load_dotenv
 import streamlit as st
 
