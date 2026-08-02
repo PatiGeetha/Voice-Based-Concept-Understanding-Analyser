@@ -19,7 +19,11 @@ for root, dirs, _ in os.walk(REPO_ROOT):
         sys.path.insert(0, root)
 
 # Now import email_utils safely
-import email_utils
+try:
+    from modules import email_utils
+except ModuleNotFoundError:
+    import email_utils
+
 st.set_page_config(
     page_title="VBCUA — Voice-Based Concept Understanding Analyser",
     page_icon="🎙️",
