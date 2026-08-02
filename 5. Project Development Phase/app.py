@@ -2,25 +2,15 @@ import os
 import sys
 from pathlib import Path
 
-# Add both current directory and parent repository root to Python path
-CURRENT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = CURRENT_DIR.parent
+# Automatically find and append all subdirectories to sys.path
+BASE_DIR = Path(__file__).resolve().parent
+REPO_ROOT = BASE_DIR.parent
 
-for path in [str(CURRENT_DIR), str(REPO_ROOT)]:
-    if path not in sys.path:
-        sys.path.insert(0, path)
+for root, dirs, _ in os.walk(REPO_ROOT):
+    if root not in sys.path:
+        sys.path.insert(0, root)
 
-import json
-import logging
-import sys
-from pathlib import Path
-
-# Force Python to look in the directory of app.py first
-CURRENT_DIR = Path(__file__).resolve().parent
-if str(CURRENT_DIR) not in sys.path:
-    sys.path.insert(0, str(CURRENT_DIR))
-
-# Import email_utils directly
+# Now import email_utils safely
 import email_utils
 from dotenv import load_dotenv
 import streamlit as st
