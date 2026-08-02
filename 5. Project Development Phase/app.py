@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 from pathlib import Path
 
 # Automatically find and append all subdirectories to sys.path
@@ -12,7 +13,6 @@ for root, dirs, _ in os.walk(REPO_ROOT):
 
 # Now import email_utils safely
 import email_utils
-from dotenv import load_dotenv
 import streamlit as st
 
 load_dotenv()
