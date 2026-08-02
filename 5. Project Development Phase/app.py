@@ -1,3 +1,6 @@
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 """
 app.py
 
@@ -9,6 +12,7 @@ Connects to the FastAPI server (running on port 8000) or falls back to direct mo
 import json
 import logging
 import os
+import email_utils
 from pathlib import Path
 import requests
 
