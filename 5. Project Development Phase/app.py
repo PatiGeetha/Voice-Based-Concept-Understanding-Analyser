@@ -1,21 +1,26 @@
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-"""
-app.py
+from pathlib import Path
 
-VBCUA — Voice-Based Concept Understanding Analyser
-Interactive Streamlit Dashboard.
-Connects to the FastAPI server (running on port 8000) or falls back to direct module execution.
-"""
+# Add both current directory and parent repository root to Python path
+CURRENT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = CURRENT_DIR.parent
+
+for path in [str(CURRENT_DIR), str(REPO_ROOT)]:
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 import json
 import logging
-import os
+
+# Safe import for email_utils
 try:
     import email_utils
 except ModuleNotFoundError:
-    from utils import email_utils
+    try:
+        from utils import email_utils
+    except ModuleNotFoundError:
+        email_utils = None  # Prevents app crash if email module isn't crucial for startup
 from pathlib import Path
 import requests
 
