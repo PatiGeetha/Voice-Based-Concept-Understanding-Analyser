@@ -407,7 +407,7 @@ if "user_info" not in st.session_state:
 if not st.session_state["authenticated"]:
     # Resolve SMTP Configuration at runtime
     smtp_host_env = os.getenv("SMTP_HOST", "")
-    smtp_port_env = int(os.getenv("SMTP_PORT", "587"))
+    smtp_port_env = int(os.getenv("SMTP_PORT", "465"))
     smtp_user_env = os.getenv("SMTP_USER", "")
     smtp_password_env = os.getenv("SMTP_PASSWORD", "")
     smtp_from_env = os.getenv("SMTP_FROM", smtp_user_env)
