@@ -1,3 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
 streamlit
 librosa
 reportlab
@@ -5,5 +7,5 @@ soundfile
 matplotlib
 numpy
 pandas
-git+https://github.com/openai/whisper.git
+openai-whisper
 sentence-transformers
