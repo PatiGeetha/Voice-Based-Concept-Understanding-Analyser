@@ -1,10 +1,9 @@
 streamlit
-openai-whisper
-sentence-transformers
 librosa
 reportlab
-torch
 soundfile
 matplotlib
 numpy
 pandas
+git+https://github.com/openai/whisper.git
+sentence-transformers
