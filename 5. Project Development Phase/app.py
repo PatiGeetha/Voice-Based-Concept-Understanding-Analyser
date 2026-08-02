@@ -1,6 +1,9 @@
 import os
 import sys
+import json
 import logging
+import requests
+import streamlit as st
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -17,7 +20,6 @@ for root, dirs, _ in os.walk(REPO_ROOT):
 
 # Now import email_utils safely
 import email_utils
-# Configure page (must be first)
 st.set_page_config(
     page_title="VBCUA — Voice-Based Concept Understanding Analyser",
     page_icon="🎙️",
